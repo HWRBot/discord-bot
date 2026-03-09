@@ -3,7 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
+
+// Регистрируем системный шрифт
+try {
+  GlobalFonts.loadSystemFonts();
+} catch(e) {}
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -12,7 +17,9 @@ const PORT = process.env.PORT || 3000;
 const API_SECRET = process.env.API_SECRET || 'changeme123';
 
 // ─── DATABASE (простой JSON-файл) ─────────────────────────────────────────────
-const DB_PATH = path.join(__dirname, 'data.json');
+// Railway Volume — данные хранятся в /data и не сбрасываются при деплое
+const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
+const DB_PATH = path.join(DATA_DIR, 'data.json');
 
 function loadDB() {
   if (!fs.existsSync(DB_PATH)) {
@@ -173,7 +180,7 @@ client.on('messageCreate', async (message) => {
       ctx.fill();
 
       // Инициалы в placeholder
-      const FONT = '30px DejaVu Sans, Arial, sans-serif';
+      const FONT = '30px DejaVu Sans,Arial,sans-serif';
       ctx.font = FONT;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
@@ -205,28 +212,28 @@ client.on('messageCreate', async (message) => {
       ctx.stroke();
 
       // Имя пользователя
-      ctx.font = 'bold 34px DejaVu Sans, Arial, sans-serif';
+      ctx.font = 'bold 34px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
       ctx.fillText(user.username, 230, 95);
 
       // Позиция
-      ctx.font = '21px DejaVu Sans, Arial, sans-serif';
+      ctx.font = '21px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#c084fc';
       ctx.fillText(`#${position} на сервере`, 230, 130);
 
       // Уровень (справа)
       ctx.textAlign = 'right';
-      ctx.font = '22px DejaVu Sans, Arial, sans-serif';
+      ctx.font = '22px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#cbd5e1';
       ctx.fillText('УРОВЕНЬ', 870, 85);
-      ctx.font = 'bold 60px DejaVu Sans, Arial, sans-serif';
+      ctx.font = 'bold 60px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#a855f7';
       ctx.fillText(`${user.level}`, 870, 148);
       ctx.textAlign = 'left';
 
       // XP подпись
-      ctx.font = '19px DejaVu Sans, Arial, sans-serif';
+      ctx.font = '19px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`XP: ${Math.floor(progressXP)} / ${Math.floor(neededXP)}`, 230, 170);
 
@@ -247,7 +254,7 @@ client.on('messageCreate', async (message) => {
       ctx.fill();
 
       // Процент на баре
-      ctx.font = 'bold 14px DejaVu Sans, Arial, sans-serif';
+      ctx.font = 'bold 14px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -256,7 +263,7 @@ client.on('messageCreate', async (message) => {
       ctx.textBaseline = 'alphabetic';
 
       // Сообщений
-      ctx.font = '17px DejaVu Sans, Arial, sans-serif';
+      ctx.font = '17px DejaVu Sans,Arial,sans-serif';
       ctx.fillStyle = '#64748b';
       ctx.fillText(`Сообщений: ${user.messages}`, 230, 248);
 
@@ -420,9 +427,17 @@ app.get('/api/stats', auth, (req, res) => {
   const db = loadDB();
   const guild = client.guilds.cache.first();
 
+  // Пинг: -1 значит ещё не измерен, показываем null
+  const rawPing = client.ws.ping;
+  const ping = rawPing > 0 ? Math.round(rawPing) : null;
+
+  // Статус: бот онлайн только если ready И есть активное соединение
+  const isOnline = client.isReady() && client.ws.status === 0;
+
   res.json({
-    bot_online: client.isReady(),
-    bot_ping: Math.round(client.ws.ping),
+    bot_online: isOnline,
+    bot_ping: ping,
+    bot_status: isOnline ? 'online' : 'offline',
     guild_name: guild?.name || 'N/A',
     guild_members: guild?.memberCount || 0,
     total_users_tracked: Object.keys(db.users).length,
