@@ -51,7 +51,7 @@ const client = new Client({
 });
 
 // ─── EVENTS ───────────────────────────────────────────────────────────────────
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`✅ Бот запущен как ${client.user.tag}`);
   client.user.setActivity('!help | твой сервер', { type: 3 }); // Watching
 });
