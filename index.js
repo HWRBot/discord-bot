@@ -1,8 +1,9 @@
-const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -51,7 +52,7 @@ const client = new Client({
 });
 
 // ─── EVENTS ───────────────────────────────────────────────────────────────────
-client.once('clientReady', () => {
+client.once('ready', () => {
   console.log(`✅ Бот запущен как ${client.user.tag}`);
   client.user.setActivity('!help | твой сервер', { type: 3 }); // Watching
 });
@@ -135,17 +136,121 @@ client.on('messageCreate', async (message) => {
 
     if (!user) return message.reply('У этого пользователя ещё нет активности.');
 
-    const embed = new EmbedBuilder()
-      .setColor(0xf1c40f)
-      .setTitle(`⭐ Ранг: ${user.username}`)
-      .addFields(
-        { name: '🏆 Уровень', value: `${user.level}`, inline: true },
-        { name: '✨ XP', value: `${user.xp}`, inline: true },
-        { name: '💬 Сообщений', value: `${user.messages}`, inline: true },
-      )
-      .setThumbnail(target.displayAvatarURL());
+    const sorted = Object.values(db.users).sort((a, b) => b.xp - a.xp);
+    const position = sorted.findIndex(u => u.id === target.id) + 1;
 
-    return message.reply({ embeds: [embed] });
+    const currentLevelXP = Math.pow((user.level - 1) / 0.1, 2);
+    const nextLevelXP = Math.pow(user.level / 0.1, 2);
+    const progressXP = user.xp - currentLevelXP;
+    const neededXP = nextLevelXP - currentLevelXP;
+    const progress = Math.min(progressXP / neededXP, 1);
+
+    try {
+      const canvas = createCanvas(900, 280);
+      const ctx = canvas.getContext('2d');
+
+      // Фон — градиент
+      const bgGrad = ctx.createLinearGradient(0, 0, 900, 280);
+      bgGrad.addColorStop(0, '#0f0c29');
+      bgGrad.addColorStop(0.5, '#302b63');
+      bgGrad.addColorStop(1, '#24243e');
+      ctx.fillStyle = bgGrad;
+      ctx.roundRect(0, 0, 900, 280, 20);
+      ctx.fill();
+
+      // Декоративные круги
+      ctx.globalAlpha = 0.07;
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath(); ctx.arc(820, 40, 120, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(100, 250, 90, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Аватар
+      const avatarURL = target.displayAvatarURL({ extension: 'png', size: 128 });
+      try {
+        const avatar = await loadImage(avatarURL);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(110, 140, 80, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(avatar, 30, 60, 160, 160);
+        ctx.restore();
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(110, 140, 82, 0, Math.PI * 2);
+        ctx.stroke();
+      } catch {}
+
+      // Имя
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(user.username, 230, 100);
+
+      // Позиция
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`#${position} на сервере`, 230, 135);
+
+      // Уровень (справа)
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText('Уровень', 860, 90);
+      ctx.font = 'bold 56px sans-serif';
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`${user.level}`, 860, 145);
+      ctx.textAlign = 'left';
+
+      // XP
+      ctx.font = '20px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`XP: ${Math.floor(progressXP)} / ${Math.floor(neededXP)}`, 230, 175);
+
+      // Прогресс-бар фон
+      ctx.fillStyle = '#1e1b4b';
+      ctx.roundRect(230, 195, 580, 30, 15);
+      ctx.fill();
+
+      // Прогресс-бар заполнение
+      const barWidth = Math.max(progress * 580, 30);
+      const barGrad = ctx.createLinearGradient(230, 0, 810, 0);
+      barGrad.addColorStop(0, '#7c3aed');
+      barGrad.addColorStop(1, '#a855f7');
+      ctx.fillStyle = barGrad;
+      ctx.roundRect(230, 195, barWidth, 30, 15);
+      ctx.fill();
+
+      // Процент
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${Math.floor(progress * 100)}%`, 230 + barWidth / 2, 215);
+      ctx.textAlign = 'left';
+
+      // Сообщений
+      ctx.font = '18px sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`Сообщений: ${user.messages}`, 230, 250);
+
+      const attachment = new AttachmentBuilder(canvas.toBuffer('image/png'), { name: 'rank.png' });
+      return message.reply({ files: [attachment] });
+
+    } catch (e) {
+      console.error('Canvas error:', e);
+      const embed = new EmbedBuilder()
+        .setColor(0xa855f7)
+        .setTitle(`Ранг: ${user.username}`)
+        .addFields(
+          { name: 'Уровень', value: `${user.level}`, inline: true },
+          { name: 'XP', value: `${user.xp}`, inline: true },
+          { name: 'Сообщений', value: `${user.messages}`, inline: true },
+          { name: 'Позиция', value: `#${position}`, inline: true },
+        )
+        .setThumbnail(target.displayAvatarURL());
+      return message.reply({ embeds: [embed] });
+    }
   }
 
   // !top
