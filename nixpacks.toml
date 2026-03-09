@@ -1,0 +1,5 @@
+[phases.setup]
+aptPkgs = ["fonts-dejavu-core", "fontconfig"]
+
+[phases.build]
+cmds = ["npm install", "fc-cache -fv"]
