@@ -155,19 +155,36 @@ client.on('messageCreate', async (message) => {
       bgGrad.addColorStop(0.5, '#302b63');
       bgGrad.addColorStop(1, '#24243e');
       ctx.fillStyle = bgGrad;
+      ctx.beginPath();
       ctx.roundRect(0, 0, 900, 280, 20);
       ctx.fill();
 
-      // Декоративные круги
-      ctx.globalAlpha = 0.07;
+      // Декоративные круги на фоне
+      ctx.globalAlpha = 0.08;
       ctx.fillStyle = '#a855f7';
-      ctx.beginPath(); ctx.arc(820, 40, 120, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(100, 250, 90, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(830, 50, 130, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(80, 240, 100, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Аватар
-      const avatarURL = target.displayAvatarURL({ extension: 'png', size: 128 });
+      // Аватар — сначала рисуем цветной placeholder
+      ctx.fillStyle = '#7c3aed';
+      ctx.beginPath();
+      ctx.arc(110, 140, 80, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Инициалы в placeholder
+      const FONT = '30px DejaVu Sans, Arial, sans-serif';
+      ctx.font = FONT;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(user.username.charAt(0).toUpperCase(), 110, 140);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+
+      // Загружаем аватар поверх placeholder
       try {
+        const avatarURL = target.displayAvatarURL({ extension: 'png', size: 128, forceStatic: true });
         const avatar = await loadImage(avatarURL);
         ctx.save();
         ctx.beginPath();
@@ -176,63 +193,72 @@ client.on('messageCreate', async (message) => {
         ctx.clip();
         ctx.drawImage(avatar, 30, 60, 160, 160);
         ctx.restore();
-        ctx.strokeStyle = '#a855f7';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(110, 140, 82, 0, Math.PI * 2);
-        ctx.stroke();
-      } catch {}
+      } catch (avatarErr) {
+        console.log('Avatar load failed, using placeholder');
+      }
 
-      // Имя
-      ctx.font = 'bold 36px sans-serif';
+      // Кольцо вокруг аватара
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(110, 140, 83, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Имя пользователя
+      ctx.font = 'bold 34px DejaVu Sans, Arial, sans-serif';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(user.username, 230, 100);
+      ctx.textAlign = 'left';
+      ctx.fillText(user.username, 230, 95);
 
       // Позиция
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillStyle = '#a855f7';
-      ctx.fillText(`#${position} на сервере`, 230, 135);
+      ctx.font = '21px DejaVu Sans, Arial, sans-serif';
+      ctx.fillStyle = '#c084fc';
+      ctx.fillText(`#${position} на сервере`, 230, 130);
 
       // Уровень (справа)
       ctx.textAlign = 'right';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillStyle = '#e2e8f0';
-      ctx.fillText('Уровень', 860, 90);
-      ctx.font = 'bold 56px sans-serif';
+      ctx.font = '22px DejaVu Sans, Arial, sans-serif';
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText('УРОВЕНЬ', 870, 85);
+      ctx.font = 'bold 60px DejaVu Sans, Arial, sans-serif';
       ctx.fillStyle = '#a855f7';
-      ctx.fillText(`${user.level}`, 860, 145);
+      ctx.fillText(`${user.level}`, 870, 148);
       ctx.textAlign = 'left';
 
-      // XP
-      ctx.font = '20px sans-serif';
+      // XP подпись
+      ctx.font = '19px DejaVu Sans, Arial, sans-serif';
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText(`XP: ${Math.floor(progressXP)} / ${Math.floor(neededXP)}`, 230, 175);
+      ctx.fillText(`XP: ${Math.floor(progressXP)} / ${Math.floor(neededXP)}`, 230, 170);
 
       // Прогресс-бар фон
       ctx.fillStyle = '#1e1b4b';
-      ctx.roundRect(230, 195, 580, 30, 15);
+      ctx.beginPath();
+      ctx.roundRect(230, 190, 570, 28, 14);
       ctx.fill();
 
       // Прогресс-бар заполнение
-      const barWidth = Math.max(progress * 580, 30);
-      const barGrad = ctx.createLinearGradient(230, 0, 810, 0);
-      barGrad.addColorStop(0, '#7c3aed');
-      barGrad.addColorStop(1, '#a855f7');
+      const barWidth = Math.max(progress * 570, 28);
+      const barGrad = ctx.createLinearGradient(230, 0, 800, 0);
+      barGrad.addColorStop(0, '#6d28d9');
+      barGrad.addColorStop(1, '#c084fc');
       ctx.fillStyle = barGrad;
-      ctx.roundRect(230, 195, barWidth, 30, 15);
+      ctx.beginPath();
+      ctx.roundRect(230, 190, barWidth, 28, 14);
       ctx.fill();
 
-      // Процент
-      ctx.font = 'bold 16px sans-serif';
+      // Процент на баре
+      ctx.font = 'bold 14px DejaVu Sans, Arial, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.fillText(`${Math.floor(progress * 100)}%`, 230 + barWidth / 2, 215);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${Math.floor(progress * 100)}%`, 230 + barWidth / 2, 204);
       ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
 
       // Сообщений
-      ctx.font = '18px sans-serif';
+      ctx.font = '17px DejaVu Sans, Arial, sans-serif';
       ctx.fillStyle = '#64748b';
-      ctx.fillText(`Сообщений: ${user.messages}`, 230, 250);
+      ctx.fillText(`Сообщений: ${user.messages}`, 230, 248);
 
       const attachment = new AttachmentBuilder(canvas.toBuffer('image/png'), { name: 'rank.png' });
       return message.reply({ files: [attachment] });
